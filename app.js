@@ -2563,15 +2563,24 @@ function setupElementEventListeners() {
     // Icon stroke width
     const iconStroke = document.getElementById('element-icon-stroke-width');
     const iconStrokeVal = document.getElementById('element-icon-stroke-width-value');
-    if (iconStroke) {
+    const setIconStroke = (raw) => {
+        if (raw.trim() === '') return false;
+        const val = Number(raw);
+        if (!Number.isFinite(val) || val < 0.5 || val > 4) return false;
+        const el = getSelectedElement();
+        if (el?.type !== 'icon') return false;
+        el.iconStrokeWidth = val;
+        iconStroke.value = String(val);
+        updateIconImage(el);
+        return true;
+    };
+    if (iconStroke && iconStrokeVal) {
         iconStroke.addEventListener('input', () => {
-            const val = parseFloat(iconStroke.value);
-            if (iconStrokeVal) iconStrokeVal.textContent = val;
-            const el = getSelectedElement();
-            if (el && el.type === 'icon') {
-                el.iconStrokeWidth = val;
-                updateIconImage(el);
-            }
+            if (setIconStroke(iconStroke.value)) iconStrokeVal.value = iconStroke.value;
+        });
+        iconStrokeVal.addEventListener('input', () => setIconStroke(iconStrokeVal.value));
+        iconStrokeVal.addEventListener('change', () => {
+            iconStrokeVal.value = String(getSelectedElement()?.iconStrokeWidth ?? 2);
         });
     }
 
@@ -2646,19 +2655,28 @@ function setupElementEventListeners() {
         const input = document.getElementById(id);
         const valueEl = document.getElementById(id + '-value');
         if (!input) return;
-        if(!valueEl) return
+        const parseValue = (raw) => {
+            if (raw.trim() === '') return null;
+            const val = parser ? parser(raw) : Number(raw);
+            return Number.isFinite(val) ? val : null;
+        };
         input.addEventListener('input', () => {
-            const val = parser ? parser(input.value) : parseFloat(input.value);
-            if (valueEl) valueEl.value = formatValue(val)
-            if (input) input.value = formatValue(val)
+            const val = parseValue(input.value);
+            if (val === null) return;
+            if (valueEl) valueEl.value = formatValue(val);
             if (selectedElementId) setElementProperty(selectedElementId, prop, val);
         });
-        valueEl.addEventListener('input', () => {
-            const val = parser ? parser(valueEl.value) : parseFloat(valueEl.value);
-            if (valueEl) valueEl.value = formatValue(val)
-            if (input) input.value = formatValue(val)
-            if (selectedElementId) setElementProperty(selectedElementId, prop, val);
-        });
+        if (valueEl) {
+            valueEl.addEventListener('input', () => {
+                const val = parseValue(valueEl.value);
+                if (val === null) return;
+                input.value = formatValue(val);
+                if (selectedElementId) setElementProperty(selectedElementId, prop, val);
+            });
+            valueEl.addEventListener('change', () => {
+                valueEl.value = formatValue(getSelectedElement()?.[prop] ?? input.value);
+            });
+        }
     };
 
     /*document.getElementById('element-x-value').addEventListener('input', (e) => {
@@ -3221,7 +3239,7 @@ function updatePopoutProperties() {
     document.getElementById('popout-shadow-x').value = shadow.x;
     document.getElementById('popout-shadow-x-value').value = formatValue(shadow.x)
     document.getElementById('popout-shadow-y').value = shadow.y;
-    document.getElementById('popout-shadow-y-value').textvalueContent = formatValue(shadow.y)
+    document.getElementById('popout-shadow-y-value').value = formatValue(shadow.y)
 
     // Border
     const border = p.border || { enabled: false, color: '#ffffff', width: 3, opacity: 100 };
@@ -4223,12 +4241,17 @@ function setupEventListeners() {
         updateCanvas();
     });
     document.getElementById('gradient-angle-value').addEventListener('input', (e) => {
-        setBackground('gradient.angle', parseInt(e.target.value));
-        document.getElementById('gradient-angle-value').value = formatValue(e.target.value);
-        document.getElementById('gradient-angle').value = formatValue(e.target.value);
+        if (e.target.value.trim() === '') return;
+        const angle = Number(e.target.value);
+        if (!Number.isFinite(angle)) return;
+        setBackground('gradient.angle', angle);
+        document.getElementById('gradient-angle').value = formatValue(angle);
         // Deselect preset when manually changing angle
         document.querySelectorAll('.preset-swatch').forEach(s => s.classList.remove('selected'));
         updateCanvas();
+    });
+    document.getElementById('gradient-angle-value').addEventListener('change', (e) => {
+        e.target.value = formatValue(getBackground().gradient.angle);
     });
 
     // Add gradient stop
@@ -6117,7 +6140,7 @@ function applyPositionPreset(preset) {
     document.getElementById('screenshot-y').value = p.y;
     document.getElementById('screenshot-y-value').value = formatValue(p.y)
     document.getElementById('screenshot-rotation').value = p.rotation;
-    document.getElementById('screenshot-rotation-value').texvaluetContent = formatValue(p.rotation)
+    document.getElementById('screenshot-rotation-value').value = formatValue(p.rotation)
 
     updateCanvas();
 }
